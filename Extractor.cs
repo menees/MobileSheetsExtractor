@@ -4,6 +4,8 @@ using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Text;
+using Menees.Chords;
+using Menees.Chords.Transformers;
 
 internal sealed class Extractor(string outputFolder, string dateTimePrefix)
 {
@@ -14,21 +16,18 @@ internal sealed class Extractor(string outputFolder, string dateTimePrefix)
 		foreach (Song song in songs)
 		{
 			string subfolder = song.FileState == FileState.Obsolete ? nameof(FileState.Obsolete) : "Files";
-			string targetFolder = Path.Combine(outputFolder, subfolder);
-			Directory.CreateDirectory(targetFolder);
+			string targetFolder = EnsureFolder(outputFolder, subfolder);
 			string targetFile = Path.Combine(targetFolder, song.File.Name);
 			song.File.CopyTo(targetFile, true);
 		}
 
 		this.ExtractCsv(songs);
-
-		// TODO: Extract augmented .cho files with all info: Title, Artists, Keys, Tempos, Capo. [Bill, 7/27/2024]
+		this.Augment(songs);
 	}
 
 	public void ExtractLists(IReadOnlyDictionary<string, List<Song>> nameToSongListMap, string subfolder)
 	{
-		string targetFolder = Path.Combine(outputFolder, subfolder);
-		Directory.CreateDirectory(targetFolder);
+		string targetFolder = EnsureFolder(outputFolder, subfolder);
 
 		foreach (var pair in nameToSongListMap)
 		{
@@ -42,6 +41,13 @@ internal sealed class Extractor(string outputFolder, string dateTimePrefix)
 	#endregion
 
 	#region Private Methods
+
+	private static string EnsureFolder(string outputFolder, string subfolder)
+	{
+		string targetFolder = Path.Combine(outputFolder, subfolder);
+		Directory.CreateDirectory(targetFolder);
+		return targetFolder;
+	}
 
 	private void ExtractCsv(IEnumerable<Song> songs)
 	{
@@ -86,6 +92,49 @@ internal sealed class Extractor(string outputFolder, string dateTimePrefix)
 		string csvFile = Path.Combine(outputFolder, "Songs.csv");
 		using StreamWriter writer = new(csvFile, false, Encoding.UTF8);
 		CsvUtility.WriteTable(writer, table);
+	}
+
+	private void Augment(IEnumerable<Song> songs)
+	{
+		foreach (Song song in songs.Where(s => s.File.Extension.Equals(".cho", StringComparison.OrdinalIgnoreCase)))
+		{
+			Document document = Document.Load(song.File.FullName);
+			IReadOnlyList<Entry> entries = DocumentTransformer.Flatten(document.Entries);
+			ILookup<string, ChordProDirectiveLine> directiveLookup = entries
+				.OfType<ChordProDirectiveLine>()
+				.Where(directive => directive.Argument.IsNotWhiteSpace())
+				.ToLookup(directive => directive.LongName, StringComparer.OrdinalIgnoreCase);
+
+			List<string> augmentedLines = [];
+			CheckDirective("title", [song.Title]);
+			CheckDirective("artist", song.Artists);
+			CheckDirective("key", song.Keys);
+			CheckDirective("tempo", song.Tempos);
+			CheckDirective("capo", [song.Capo]);
+
+			if (augmentedLines.Count > 0)
+			{
+				augmentedLines.AddRange(File.ReadLines(song.File.FullName));
+				string targetFolder = EnsureFolder(outputFolder, "Augmented");
+				string targetFile = Path.Combine(targetFolder, song.File.Name);
+				File.WriteAllLines(targetFile, augmentedLines);
+			}
+
+			void CheckDirective<T>(string directiveName, IEnumerable<T> values)
+			{
+				if (!directiveLookup.Contains(directiveName) && values.Any(value => value != null && value.ToString().IsNotWhiteSpace()))
+				{
+					// ChordPro says, "Multiple artists can be specified using multiple directives."
+					// https://www.chordpro.org/chordpro/directives-artist/
+					// However, OnSong says, "You can specify multiple artists by separating names with a semi-colon."
+					// And OnSong 2024 doesn't support duplicate {artist: ...} directives. :-(
+					// https://onsongapp.com/docs/features/formats/chordpro/
+					const char OnSongSeparator = ';';
+					string argument = string.Join(OnSongSeparator, values);
+					augmentedLines.Add($"{{{directiveName}: {argument}}}");
+				}
+			}
+		}
 	}
 
 	#endregion

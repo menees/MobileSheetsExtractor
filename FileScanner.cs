@@ -1,21 +1,12 @@
 ﻿namespace MobileSheetsExtractor;
 
-internal sealed class FileScanner
+internal sealed class FileScanner(string inputFolder, IEnumerable<string> fileMasks)
 {
-	#region Constructors
-
-	public FileScanner(string inputFolder, IEnumerable<string> fileMasks)
-	{
-		this.Songs = [.. fileMasks
-			.SelectMany(mask => Directory.EnumerateFiles(inputFolder, mask, SearchOption.AllDirectories))
-			.Select(file => new Song(new FileInfo(file), inputFolder))];
-	}
-
-	#endregion
-
 	#region Public Properties
 
-	public IReadOnlyList<Song> Songs { get; }
+	public IReadOnlyList<Song> Songs { get; } = [.. fileMasks
+			.SelectMany(mask => Directory.EnumerateFiles(inputFolder, mask, SearchOption.AllDirectories))
+			.Select(file => new Song(new FileInfo(file), inputFolder))];
 
 	#endregion
 
