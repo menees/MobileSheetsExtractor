@@ -106,6 +106,7 @@ internal sealed class Extractor(string outputFolder, string dateTimePrefix)
 				.ToLookup(directive => directive.LongName, StringComparer.OrdinalIgnoreCase);
 
 			List<string> augmentedLines = [];
+			List<string> existingDirectives = [];
 			CheckDirective("title", [song.Title]);
 			CheckDirective("artist", song.Artists);
 			CheckDirective("key", song.Keys);
@@ -114,27 +115,59 @@ internal sealed class Extractor(string outputFolder, string dateTimePrefix)
 
 			if (augmentedLines.Count > 0)
 			{
-				augmentedLines.AddRange(File.ReadLines(song.File.FullName));
-				string targetFolder = EnsureFolder(outputFolder, "Augmented");
-				string targetFile = Path.Combine(targetFolder, song.File.Name);
-				File.WriteAllLines(targetFile, augmentedLines);
+				Augment(song, augmentedLines, existingDirectives);
 			}
 
 			void CheckDirective<T>(string directiveName, IEnumerable<T> values)
 			{
-				if (!directiveLookup.Contains(directiveName) && values.Any(value => value != null && value.ToString().IsNotWhiteSpace()))
+				if (directiveLookup.Contains(directiveName))
+				{
+					existingDirectives.Add(directiveName);
+				}
+				else if (values.Any(value => value != null && value.ToString().IsNotWhiteSpace()))
 				{
 					// ChordPro says, "Multiple artists can be specified using multiple directives."
 					// https://www.chordpro.org/chordpro/directives-artist/
 					// However, OnSong says, "You can specify multiple artists by separating names with a semi-colon."
-					// And OnSong 2024 doesn't support duplicate {artist: ...} directives. :-(
+					// OnSong 2024 doesn't support duplicate {artist: ...} directives, and it also requires a space
+					// after the semicolon.
 					// https://onsongapp.com/docs/features/formats/chordpro/
-					const char OnSongSeparator = ';';
+					const string OnSongSeparator = "; ";
 					string argument = string.Join(OnSongSeparator, values);
 					augmentedLines.Add($"{{{directiveName}: {argument}}}");
 				}
 			}
 		}
+	}
+
+	private void Augment(Song song, List<string> augmentedLines, List<string> existingDirectives)
+	{
+		// If we only need to add a {capo} directive or something, make sure it comes after other existing directives.
+		// Some software (e.g., SongBook) assumes that the {title} directive will be the first line.
+		List<string> existingLines = [.. File.ReadLines(song.File.FullName)];
+		int maxDirectiveIndex = -1;
+		foreach (string directive in existingDirectives)
+		{
+			for (int index = 0; index < existingLines.Count; index++)
+			{
+				if (existingLines[index].TrimStart().StartsWith($"{{{directive}:"))
+				{
+					maxDirectiveIndex = Math.Max(index, maxDirectiveIndex);
+					break;
+				}
+			}
+		}
+
+		if (existingLines.Count > (maxDirectiveIndex + 1) && existingLines[maxDirectiveIndex + 1].IsNotWhiteSpace())
+		{
+			augmentedLines.Add(string.Empty);
+		}
+
+		existingLines.InsertRange(maxDirectiveIndex + 1, augmentedLines);
+
+		string targetFolder = EnsureFolder(outputFolder, "Augmented");
+		string targetFile = Path.Combine(targetFolder, song.File.Name);
+		File.WriteAllLines(targetFile, existingLines);
 	}
 
 	#endregion
