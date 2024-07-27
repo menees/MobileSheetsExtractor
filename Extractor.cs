@@ -2,8 +2,10 @@
 
 using System;
 using System.Collections.Generic;
+using System.Data;
+using System.Text;
 
-internal sealed class Extractor(string outputFolder)
+internal sealed class Extractor(string outputFolder, string dateTimePrefix)
 {
 	#region Public Methods
 
@@ -16,15 +18,14 @@ internal sealed class Extractor(string outputFolder)
 			Directory.CreateDirectory(targetFolder);
 			string targetFile = Path.Combine(targetFolder, song.File.Name);
 			song.File.CopyTo(targetFile, true);
+
+			// Before we extract to CSV try to make sure we have artist info.
+			song.InferArtist();
 		}
 
-		// TODO: Extract Songs.csv. [Bill, 7/27/2024]
-		// TODO: Extract augmented .cho files with all info: Title, Artists, Keys, Tempos, Capo. [Bill, 7/27/2024]
+		this.ExtractCsv(songs);
 
-		// string csvFile = Path.Combine(args.OutputFolder, "Songs.csv");
-		// FileUtility.TryDeleteFile(csvFile);
-		// DataTable songData;
-		// CsvUtility.WriteTable(csvFile, songData);
+		// TODO: Extract augmented .cho files with all info: Title, Artists, Keys, Tempos, Capo. [Bill, 7/27/2024]
 	}
 
 	public void ExtractLists(IReadOnlyDictionary<string, List<Song>> nameToSongListMap, string subfolder)
@@ -39,6 +40,51 @@ internal sealed class Extractor(string outputFolder)
 			FileUtility.TryDeleteFile(targetFile);
 			File.WriteAllText(targetFile, content);
 		}
+	}
+
+	#endregion
+
+	#region Private Methods
+
+	private void ExtractCsv(IEnumerable<Song> songs)
+	{
+		DataTable table = new();
+		DataColumnCollection columns = table.Columns;
+
+		DataColumn fileName = columns.Add("FileName");
+		DataColumn fileType = columns.Add("FileType");
+		DataColumn size = columns.Add("Size", typeof(long));
+		DataColumn modified = columns.Add("Modified");
+		DataColumn fileState = columns.Add("FileState");
+		DataColumn title = columns.Add("Title");
+		DataColumn artists = columns.Add("Artists");
+		DataColumn keys = columns.Add("Keys");
+		DataColumn tempos = columns.Add("Tempos");
+		DataColumn capo = columns.Add("Capo", typeof(byte));
+		DataColumn contentType = columns.Add("ContentType");
+		DataColumn id = columns.Add("Id", typeof(int));
+
+		foreach (Song song in songs.OrderBy(song => song.Title))
+		{
+			DataRow row = table.NewRow();
+			row[fileName] = song.File.Name;
+			row[fileType] = song.File.Extension.TrimStart('.');
+			row[size] = song.File.Length;
+			row[modified] = $"{dateTimePrefix}{song.File.LastWriteTimeUtc:yyyy-MM-dd HH:mm:ss}Z";
+			row[fileState] = song.FileState.ToString();
+			row[title] = song.Title;
+			row[artists] = string.Join(';', song.Artists);
+			row[keys] = string.Join(';', song.Keys);
+			row[tempos] = string.Join(';', song.Tempos);
+			row[capo] = song.Capo ?? (object)DBNull.Value;
+			row[contentType] = song.ContentType ?? (object)DBNull.Value;
+			row[id] = song.Id ?? (object)DBNull.Value;
+			table.Rows.Add(row);
+		}
+
+		string csvFile = Path.Combine(outputFolder, "Songs.csv");
+		using StreamWriter writer = new(csvFile, false, Encoding.UTF8);
+		CsvUtility.WriteTable(writer, table);
 	}
 
 	#endregion
