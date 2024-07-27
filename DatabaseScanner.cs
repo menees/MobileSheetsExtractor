@@ -178,6 +178,8 @@ internal sealed class DatabaseScanner
 		Func<IDataRecord, int, T> getValue,
 		Func<Song, IList<T>> getCollection)
 	{
+		HashSet<int> initializedSongs = [new()];
+
 		using SQLiteDataReader reader = command.ExecuteReader();
 		while (reader.Read())
 		{
@@ -186,6 +188,16 @@ internal sealed class DatabaseScanner
 
 			Song song = idToSongMap[songId];
 			IList<T> collection = getCollection(song);
+
+			// Song.Artists may contain an initial artist name inferred from the file name.
+			// It's often a short name (e.g., Tom Petty) instead of the full artist name
+			// (e.g., Tom Petty and the Heartbreakers). We'll clear the inferred values
+			// the first time we see a song, so the database values will take precedence.
+			if (initializedSongs.Add(songId))
+			{
+				collection.Clear();
+			}
+
 			if (!collection.Contains(value))
 			{
 				collection.Add(value);

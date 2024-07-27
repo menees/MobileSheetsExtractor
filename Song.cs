@@ -8,8 +8,6 @@ internal sealed class Song
 
 	private static readonly char[] Separators = ['-', '–']; // Hyphen or en-dash
 
-	private readonly string baseName;
-
 	#endregion
 
 	#region Constructors
@@ -18,8 +16,14 @@ internal sealed class Song
 	{
 		this.File = file;
 
-		this.baseName = Path.GetFileNameWithoutExtension(this.File.Name);
-		this.Title = this.baseName;
+		string baseName = Path.GetFileNameWithoutExtension(file.Name);
+		this.Title = baseName;
+		int separatorIndex = baseName.IndexOfAny(Separators);
+		if (separatorIndex >= 0)
+		{
+			this.Title = baseName[..separatorIndex].Trim();
+			this.Artists.Add(baseName[(separatorIndex + 1)..].Trim());
+		}
 
 		// MobileSheets stores paths with '/' separators.
 		this.RelativeFileName = file.FullName[basePath.Length..].TrimStart('\\').Replace('\\', '/');
@@ -56,27 +60,6 @@ internal sealed class Song
 	public List<string> Keys { get; } = [];
 
 	public List<int> Tempos { get; } = [];
-
-	#endregion
-
-	#region Public Methods
-
-	public void InferArtist()
-	{
-		// We can't populate this.Artists in the constructor because it might infer a short
-		// artist name from the file name, and the database may have a full artist name.
-		// For example, we'd infer "Tom Petty" from "American Girl - Tom Petty.cho", but the
-		// database lists the artist as "Tom Petty and the Heartbreakers".
-		if (this.Artists.Count == 0)
-		{
-			int separatorIndex = this.baseName.IndexOfAny(Separators);
-			if (separatorIndex >= 0)
-			{
-				this.Title = this.baseName[..separatorIndex].Trim();
-				this.Artists.Add(this.baseName[(separatorIndex + 1)..].Trim());
-			}
-		}
-	}
 
 	#endregion
 }

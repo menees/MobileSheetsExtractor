@@ -18,9 +18,6 @@ internal sealed class Extractor(string outputFolder, string dateTimePrefix)
 			Directory.CreateDirectory(targetFolder);
 			string targetFile = Path.Combine(targetFolder, song.File.Name);
 			song.File.CopyTo(targetFile, true);
-
-			// Before we extract to CSV try to make sure we have artist info.
-			song.InferArtist();
 		}
 
 		this.ExtractCsv(songs);
@@ -63,6 +60,7 @@ internal sealed class Extractor(string outputFolder, string dateTimePrefix)
 		DataColumn capo = columns.Add("Capo", typeof(byte));
 		DataColumn contentType = columns.Add("ContentType");
 		DataColumn id = columns.Add("Id", typeof(int));
+		DataColumn relativePath = columns.Add("RelativePath");
 
 		foreach (Song song in songs.OrderBy(song => song.Title))
 		{
@@ -79,6 +77,7 @@ internal sealed class Extractor(string outputFolder, string dateTimePrefix)
 			row[capo] = song.Capo ?? (object)DBNull.Value;
 			row[contentType] = song.ContentType ?? (object)DBNull.Value;
 			row[id] = song.Id ?? (object)DBNull.Value;
+			row[relativePath] = Path.GetDirectoryName(song.RelativeFileName);
 			table.Rows.Add(row);
 		}
 
