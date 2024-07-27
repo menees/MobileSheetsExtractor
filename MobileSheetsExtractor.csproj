@@ -4,6 +4,7 @@
 		<TargetFramework>net8.0</TargetFramework>
 		<ImplicitUsings>enable</ImplicitUsings>
 		<Nullable>enable</Nullable>
+		<NoWarn>MEN010</NoWarn>
 	</PropertyGroup>
 
 	<ItemGroup>
@@ -13,9 +14,10 @@
 	  </PackageReference>
 	  <PackageReference Include="Menees.Chords" Version="0.9.4-beta" />
 	  <PackageReference Include="Menees.Common" Version="5.1.2" />
+	  <PackageReference Include="System.Data.SQLite.Core" Version="1.0.118" />
 	</ItemGroup>
 
 	<ItemGroup>
-		<Using Include="Menees"/>
+		<Using Include="Menees" />
 	</ItemGroup>
 </Project>

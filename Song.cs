@@ -25,9 +25,8 @@ internal sealed class Song
 			this.Artists.Add(baseName[(separatorIndex + 1)..].Trim());
 		}
 
-		this.RelativeDirectory = file.Directory is null
-			? string.Empty
-			: file.Directory.FullName[basePath.Length..].TrimStart('\\').Replace('\\', '/');
+		// MobileSheets stores paths with '/' separators.
+		this.RelativeFileName = file.FullName[basePath.Length..].TrimStart('\\').Replace('\\', '/');
 
 		using FileStream fileStream = new(file.FullName, FileMode.Open, FileAccess.Read, FileShare.Read);
 		this.Hash = Convert.ToHexString(SHA256.HashData(fileStream));
@@ -45,22 +44,22 @@ internal sealed class Song
 
 	public List<string> Artists { get; } = [];
 
-	public string RelativeDirectory { get; }
+	/// <summary>
+	/// The file name relative to <see cref="Args.InputFolder"/>.
+	/// </summary>
+	public string RelativeFileName { get; }
 
 	public string Hash { get; }
 
-	#endregion
+	public int? Id { get; set; }
 
-	#region Public Methods
+	public byte? Capo { get; set; }
 
-	public void Extract(string outputFolder)
-	{
-		string subfolder = this.FileState == FileState.Obsolete ? nameof(FileState.Obsolete) : "Files";
-		string targetFolder = Path.Combine(outputFolder, subfolder);
-		Directory.CreateDirectory(targetFolder);
-		string targetFile = Path.Combine(targetFolder, this.File.Name);
-		this.File.CopyTo(targetFile, true);
-	}
+	public string? ContentType { get; set; }
+
+	public List<string> Keys { get; } = [];
+
+	public List<int> Tempos { get; } = [];
 
 	#endregion
 }

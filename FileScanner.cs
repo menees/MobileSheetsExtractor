@@ -4,13 +4,13 @@ internal sealed class FileScanner
 {
 	#region Constructors
 
-	public FileScanner(Args args)
+	public FileScanner(string inputFolder, IEnumerable<string> fileMasks)
 	{
-		this.Songs = [.. args.FileMasks
-			.SelectMany(mask => Directory.EnumerateFiles(args.InputFolder, mask, SearchOption.AllDirectories))
-			.Select(file => new Song(new FileInfo(file), args.InputFolder))
+		this.Songs = [.. fileMasks
+			.SelectMany(mask => Directory.EnumerateFiles(inputFolder, mask, SearchOption.AllDirectories))
+			.Select(file => new Song(new FileInfo(file), inputFolder))
 			.OrderByDescending(song => song.File.LastWriteTimeUtc)
-			.ThenByDescending(song => song.RelativeDirectory)];
+			.ThenBy(song => song.RelativeFileName)];
 
 		// Mark preferred and obsolete duplicates based on hash and file name.
 		SetGroupFileStates(this.Songs.GroupBy(song => song.Hash));

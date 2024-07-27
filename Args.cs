@@ -13,9 +13,7 @@ internal sealed class Args
 		this.OutputFolder = GetArg(0, string.Empty);
 		this.InputFolder = GetArg(1, @"C:\Users\Bill\AppData\Local\Packages\41730Zubersoft.MobileSheets_ys1c8ct2g6ypr\LocalState");
 		this.FileMasks = GetArg(2, "*.cho;*.pdf").Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-#pragma warning disable MEN010 // Avoid magic numbers. Index is clear in context.
 		this.DateTimePrefix = GetArg(3, "'");
-#pragma warning restore MEN010 // Avoid magic numbers
 
 		StringBuilder sb = new();
 		if (this.OutputFolder.IsEmpty()
