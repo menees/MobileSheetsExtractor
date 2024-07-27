@@ -11,11 +11,15 @@ internal class Program
 		}
 		else
 		{
-			// First, read the raw files on disk and determine the preferred one to keep for duplicates.
+			// First, read the raw files on disk.
 			FileScanner fileScanner = new(args.InputFolder, args.FileMasks);
 
 			// Next, read the SQLite database to get other song details.
 			DatabaseScanner databaseScanner = new(args.InputFolder, fileScanner.Songs);
+
+			// Set file states now that we have all the details, so we can best
+			// determine the preferred one to keep from duplicates.
+			fileScanner.SetFileStates();
 
 			Extractor extractor = new(args.OutputFolder, args.DateTimePrefix);
 

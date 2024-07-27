@@ -62,6 +62,8 @@ internal sealed class Extractor(string outputFolder, string dateTimePrefix)
 		DataColumn id = columns.Add("Id", typeof(int));
 		DataColumn relativePath = columns.Add("RelativePath");
 
+		// Using ';' instead of Environment.NewLine makes the file more visually pleasing.
+		const char MultiInstanceSeparator = ';';
 		foreach (Song song in songs.OrderBy(song => song.Title))
 		{
 			DataRow row = table.NewRow();
@@ -71,9 +73,9 @@ internal sealed class Extractor(string outputFolder, string dateTimePrefix)
 			row[modified] = $"{dateTimePrefix}{song.File.LastWriteTimeUtc:yyyy-MM-dd HH:mm:ss}Z";
 			row[fileState] = song.FileState.ToString();
 			row[title] = song.Title;
-			row[artists] = string.Join(';', song.Artists);
-			row[keys] = string.Join(';', song.Keys);
-			row[tempos] = string.Join(';', song.Tempos);
+			row[artists] = string.Join(MultiInstanceSeparator, song.Artists);
+			row[keys] = string.Join(MultiInstanceSeparator, song.Keys);
+			row[tempos] = string.Join(MultiInstanceSeparator, song.Tempos);
 			row[capo] = song.Capo ?? (object)DBNull.Value;
 			row[contentType] = song.ContentType ?? (object)DBNull.Value;
 			row[id] = song.Id ?? (object)DBNull.Value;
