@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "MobileSheetsExtractor": {
+      "commandName": "Project",
+      "commandLineArgs": "C:\\Temp\\MobileSheets\\ExtractCs"
+    }
+  }
+}
