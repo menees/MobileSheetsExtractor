@@ -7,8 +7,31 @@ using System.Text;
 using Menees.Chords;
 using Menees.Chords.Transformers;
 
-internal sealed class Extractor(string outputFolder, string dateTimePrefix)
+internal sealed class Extractor
 {
+	#region Private Data Members
+
+	private readonly string outputFolder;
+	private readonly string dateTimePrefix;
+	private readonly bool flatten;
+
+	#endregion
+
+	#region Constructors
+
+	public Extractor(string outputFolder, string dateTimePrefix, bool flatten)
+	{
+		this.outputFolder = outputFolder;
+		this.dateTimePrefix = dateTimePrefix;
+		this.flatten = flatten;
+
+		// Make sure we start from scratch every time.
+		Directory.Delete(outputFolder, true);
+		Directory.CreateDirectory(outputFolder);
+	}
+
+	#endregion
+
 	#region Public Methods
 
 	public void ExtractSongs(IEnumerable<Song> songs)
@@ -16,9 +39,9 @@ internal sealed class Extractor(string outputFolder, string dateTimePrefix)
 		foreach (Song song in songs)
 		{
 			string subfolder = song.FileState == FileState.Obsolete ? nameof(FileState.Obsolete) : "Files";
-			string targetFolder = EnsureFolder(outputFolder, subfolder);
-			string targetFile = Path.Combine(targetFolder, song.File.Name);
-			song.File.CopyTo(targetFile, true);
+			string targetFile = GetOutputFileFullName(song, subfolder);
+			EnsureUniqueFile(targetFile);
+			song.File.CopyTo(targetFile);
 		}
 
 		this.ExtractCsv(songs);
@@ -27,13 +50,14 @@ internal sealed class Extractor(string outputFolder, string dateTimePrefix)
 
 	public void ExtractLists(IReadOnlyDictionary<string, List<Song>> nameToSongListMap, string subfolder)
 	{
-		string targetFolder = EnsureFolder(outputFolder, subfolder);
+		string targetFolder = Path.Combine(outputFolder, subfolder);
+		Directory.CreateDirectory(targetFolder);
 
 		foreach (var pair in nameToSongListMap)
 		{
 			string targetFile = Path.Combine(targetFolder, $"{pair.Key}.txt");
 			string content = string.Join(Environment.NewLine, pair.Value.Select(song => song.Title));
-			FileUtility.TryDeleteFile(targetFile);
+			EnsureUniqueFile(targetFile);
 			File.WriteAllText(targetFile, content);
 		}
 	}
@@ -42,11 +66,12 @@ internal sealed class Extractor(string outputFolder, string dateTimePrefix)
 
 	#region Private Methods
 
-	private static string EnsureFolder(string outputFolder, string subfolder)
+	private static void EnsureUniqueFile(string targetFile)
 	{
-		string targetFolder = Path.Combine(outputFolder, subfolder);
-		Directory.CreateDirectory(targetFolder);
-		return targetFolder;
+		if (File.Exists(targetFile))
+		{
+			throw new IOException($"{targetFile} already exists and would be overwritten.");
+		}
 	}
 
 	private void ExtractCsv(IEnumerable<Song> songs)
@@ -77,7 +102,7 @@ internal sealed class Extractor(string outputFolder, string dateTimePrefix)
 			row[fileName] = song.File.Name;
 			row[fileType] = song.File.Extension.TrimStart('.');
 			row[size] = song.File.Length;
-			row[modified] = $"{dateTimePrefix}{song.File.LastWriteTimeUtc:yyyy-MM-dd HH:mm:ss}Z";
+			row[modified] = $"{this.dateTimePrefix}{song.File.LastWriteTimeUtc:yyyy-MM-dd HH:mm:ss}Z";
 			row[fileState] = song.FileState.ToString();
 			row[title] = song.Title;
 			row[artists] = string.Join(MultiInstanceSeparator, song.Artists);
@@ -90,14 +115,19 @@ internal sealed class Extractor(string outputFolder, string dateTimePrefix)
 			table.Rows.Add(row);
 		}
 
-		string csvFile = Path.Combine(outputFolder, "Songs.csv");
+		string csvFile = Path.Combine(this.outputFolder, "Songs.csv");
+		EnsureUniqueFile(csvFile);
 		using StreamWriter writer = new(csvFile, false, Encoding.UTF8);
 		CsvUtility.WriteTable(writer, table);
 	}
 
 	private void Augment(IEnumerable<Song> songs)
 	{
-		foreach (Song song in songs.Where(s => s.File.Extension.Equals(".cho", StringComparison.OrdinalIgnoreCase)))
+		List<Song> parsableSongs = [.. songs
+			.Where(song => song.FileState != FileState.Obsolete)
+			.Where(s => s.File.Extension.Equals(".cho", StringComparison.OrdinalIgnoreCase))];
+
+		foreach (Song song in parsableSongs)
 		{
 			Document document = Document.Load(song.File.FullName);
 			IReadOnlyList<Entry> entries = DocumentTransformer.Flatten(document.Entries);
@@ -116,7 +146,7 @@ internal sealed class Extractor(string outputFolder, string dateTimePrefix)
 
 			if (augmentedLines.Count > 0)
 			{
-				Augment(song, augmentedLines, existingDirectives);
+				this.Augment(song, augmentedLines, existingDirectives);
 			}
 
 			void CheckDirective<T>(string directiveName, IEnumerable<T> values)
@@ -166,9 +196,25 @@ internal sealed class Extractor(string outputFolder, string dateTimePrefix)
 
 		existingLines.InsertRange(maxDirectiveIndex + 1, augmentedLines);
 
-		string targetFolder = EnsureFolder(outputFolder, "Augmented");
-		string targetFile = Path.Combine(targetFolder, song.File.Name);
+		string targetFile = GetOutputFileFullName(song, "Augmented");
+		EnsureUniqueFile(targetFile);
 		File.WriteAllLines(targetFile, existingLines);
+	}
+
+	private string GetOutputFileFullName(Song song, string subfolder)
+	{
+		// We might want to use the RelativeFileName instead of File.Name if we have duplicate file names
+		// for different songs or different versions of the same song. But that leads to an ugly folder
+		// structure. It's better to just make the input file names unique via MobileSheets first.
+		string fileName = this.flatten ? song.File.Name : song.RelativeFileName;
+		string targetFile = Path.Combine(this.outputFolder, subfolder, fileName);
+		string? targetFolder = Path.GetDirectoryName(targetFile);
+		if (targetFolder.IsNotEmpty())
+		{
+			Directory.CreateDirectory(targetFolder);
+		}
+
+		return targetFile;
 	}
 
 	#endregion

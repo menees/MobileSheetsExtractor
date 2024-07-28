@@ -26,8 +26,8 @@ internal sealed class FileScanner(string inputFolder, IEnumerable<string> fileMa
 		// Mark preferred and obsolete duplicates based on hash and file name.
 		SetGroupFileStates(orderedSongs.GroupBy(song => song.Hash));
 		SetGroupFileStates(orderedSongs.GroupBy(song => song.File.Name));
-
 	}
+
 	#region Private Methods
 
 	private static void SetGroupFileStates(IEnumerable<IGrouping<string, Song>> groups)
@@ -41,7 +41,7 @@ internal sealed class FileScanner(string inputFolder, IEnumerable<string> fileMa
 				{
 					if (song.FileState == FileState.Unique)
 					{
-						song.FileState = first ? FileState.Preferred : FileState.Obsolete;
+						song.FileState = first || song.Id != null ? FileState.Preferred : FileState.Obsolete;
 					}
 
 					first = false;

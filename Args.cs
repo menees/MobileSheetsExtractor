@@ -14,6 +14,7 @@ internal sealed class Args
 		this.InputFolder = GetArg(1, @"C:\Users\Bill\AppData\Local\Packages\41730Zubersoft.MobileSheets_ys1c8ct2g6ypr\LocalState");
 		this.FileMasks = GetArg(2, "*.cho;*.pdf").Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 		this.DateTimePrefix = GetArg(3, "'");
+		this.Flatten = ConvertUtility.ToBoolean(GetArg(4, "true"));
 
 		StringBuilder sb = new();
 		if (this.OutputFolder.IsEmpty()
@@ -56,6 +57,8 @@ internal sealed class Args
 	public IReadOnlyList<string> FileMasks { get; }
 
 	public string DateTimePrefix { get; }
+
+	public bool Flatten { get; }
 
 	public string HelpText { get; }
 

@@ -21,7 +21,7 @@ internal class Program
 			// determine the preferred one to keep from duplicates.
 			fileScanner.SetFileStates();
 
-			Extractor extractor = new(args.OutputFolder, args.DateTimePrefix);
+			Extractor extractor = new(args.OutputFolder, args.DateTimePrefix, args.Flatten);
 
 			// Use FileScanner's song list because there may be old files on disk that are no longer
 			// in the database (e.g., PDFs that we're using CHO files for now instead).
