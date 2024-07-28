@@ -37,7 +37,7 @@ internal sealed class Extractor
 		foreach (Song song in songs)
 		{
 			string subfolder = song.FileState == FileState.Obsolete ? nameof(FileState.Obsolete) : "Files";
-			string targetFile = GetOutputFileFullName(song, subfolder);
+			string targetFile = this.GetOutputFileFullName(song, subfolder);
 			EnsureUniqueFile(targetFile);
 			song.File.CopyTo(targetFile);
 		}
@@ -174,7 +174,7 @@ internal sealed class Extractor
 					lines.Insert(insertIndex, string.Empty);
 				}
 
-				string targetFile = GetOutputFileFullName(song, "Augmented");
+				string targetFile = this.GetOutputFileFullName(song, "Augmented");
 				EnsureUniqueFile(targetFile);
 				File.WriteAllLines(targetFile, lines);
 			}

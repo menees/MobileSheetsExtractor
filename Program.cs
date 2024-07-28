@@ -2,7 +2,7 @@
 
 internal class Program
 {
-	static void Main(string[] rawArgs)
+	private static void Main(string[] rawArgs)
 	{
 		Args args = new(rawArgs);
 		if (args.HelpText.IsNotEmpty())

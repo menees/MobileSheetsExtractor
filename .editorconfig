@@ -1,0 +1,28 @@
+﻿[*.cs]
+
+# SA0001: XML comment analysis is disabled due to project configuration
+dotnet_diagnostic.SA0001.severity = none
+
+# SA1027: Use tabs correctly
+dotnet_diagnostic.SA1027.severity = none
+
+# SA1124: Do not use regions
+dotnet_diagnostic.SA1124.severity = none
+
+# SA1600: Elements should be documented
+dotnet_diagnostic.SA1600.severity = none
+
+# SA1623: Property summary documentation should match accessors
+dotnet_diagnostic.SA1623.severity = none
+
+# SA1629: Documentation text should end with a period
+dotnet_diagnostic.SA1629.severity = none
+
+# SA1633: File should have header
+dotnet_diagnostic.SA1633.severity = none
+
+# SA1649: File name should match first type name
+dotnet_diagnostic.SA1649.severity = none
+
+# MEN010: Avoid magic numbers
+dotnet_diagnostic.MEN010.severity = none

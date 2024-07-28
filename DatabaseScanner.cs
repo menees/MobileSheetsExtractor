@@ -178,7 +178,7 @@ internal sealed class DatabaseScanner
 		Func<IDataRecord, int, T> getValue,
 		Func<Song, IList<T>> getCollection)
 	{
-		HashSet<int> initializedSongs = [new()];
+		HashSet<int> initializedSongs = [];
 
 		using SQLiteDataReader reader = command.ExecuteReader();
 		while (reader.Read())
@@ -226,7 +226,6 @@ internal sealed class DatabaseScanner
 		}
 
 		return result;
-
 	}
 
 	#endregion
