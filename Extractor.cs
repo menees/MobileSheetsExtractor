@@ -69,8 +69,9 @@ internal sealed class Extractor(string outputFolder, string dateTimePrefix)
 		DataColumn relativePath = columns.Add("RelativePath");
 
 		// Using ';' instead of Environment.NewLine makes the file more visually pleasing.
+		// Also, we use ';' below in Augment(...) for OnSong compatibility.
 		const char MultiInstanceSeparator = ';';
-		foreach (Song song in songs.OrderBy(song => song.Title))
+		foreach (Song song in songs.OrderBy(song => song.File.Name).ThenBy(song => song.FileState))
 		{
 			DataRow row = table.NewRow();
 			row[fileName] = song.File.Name;
