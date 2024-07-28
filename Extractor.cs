@@ -11,26 +11,24 @@ internal sealed class Extractor
 {
 	#region Private Data Members
 
-	private readonly string outputFolder;
-	private readonly string dateTimePrefix;
-	private readonly bool flatten;
+	private readonly Args args;
 
 	#endregion
 
 	#region Constructors
 
-	public Extractor(string outputFolder, string dateTimePrefix, bool flatten)
+	public Extractor(Args args)
 	{
-		this.outputFolder = outputFolder;
-		this.dateTimePrefix = dateTimePrefix;
-		this.flatten = flatten;
+		this.args = args;
 
 		// Make sure we start from scratch every time.
-		Directory.Delete(outputFolder, true);
-		Directory.CreateDirectory(outputFolder);
+		Directory.Delete(this.OutputFolder, true);
+		Directory.CreateDirectory(this.OutputFolder);
 	}
 
 	#endregion
+
+	private string OutputFolder => this.args.OutputFolder;
 
 	#region Public Methods
 
@@ -46,11 +44,12 @@ internal sealed class Extractor
 
 		this.ExtractCsv(songs);
 		this.Augment(songs);
+		this.GenerateCleanUpScript(songs);
 	}
 
 	public void ExtractLists(IReadOnlyDictionary<string, List<Song>> nameToSongListMap, string subfolder)
 	{
-		string targetFolder = Path.Combine(outputFolder, subfolder);
+		string targetFolder = Path.Combine(this.OutputFolder, subfolder);
 		Directory.CreateDirectory(targetFolder);
 
 		foreach (var pair in nameToSongListMap)
@@ -102,7 +101,7 @@ internal sealed class Extractor
 			row[fileName] = song.File.Name;
 			row[fileType] = song.File.Extension.TrimStart('.');
 			row[size] = song.File.Length;
-			row[modified] = $"{this.dateTimePrefix}{song.File.LastWriteTimeUtc:yyyy-MM-dd HH:mm:ss}Z";
+			row[modified] = $"{this.args.DateTimePrefix}{song.File.LastWriteTimeUtc:yyyy-MM-dd HH:mm:ss}Z";
 			row[fileState] = song.FileState.ToString();
 			row[title] = song.Title;
 			row[artists] = string.Join(MultiInstanceSeparator, song.Artists);
@@ -115,7 +114,7 @@ internal sealed class Extractor
 			table.Rows.Add(row);
 		}
 
-		string csvFile = Path.Combine(this.outputFolder, "Songs.csv");
+		string csvFile = Path.Combine(this.OutputFolder, "Songs.csv");
 		EnsureUniqueFile(csvFile);
 		using StreamWriter writer = new(csvFile, false, Encoding.UTF8);
 		CsvUtility.WriteTable(writer, table);
@@ -206,8 +205,8 @@ internal sealed class Extractor
 		// We might want to use the RelativeFileName instead of File.Name if we have duplicate file names
 		// for different songs or different versions of the same song. But that leads to an ugly folder
 		// structure. It's better to just make the input file names unique via MobileSheets first.
-		string fileName = this.flatten ? song.File.Name : song.RelativeFileName;
-		string targetFile = Path.Combine(this.outputFolder, subfolder, fileName);
+		string fileName = this.args.Flatten ? song.File.Name : song.RelativeFileName;
+		string targetFile = Path.Combine(this.OutputFolder, subfolder, fileName);
 		string? targetFolder = Path.GetDirectoryName(targetFile);
 		if (targetFolder.IsNotEmpty())
 		{
@@ -215,6 +214,29 @@ internal sealed class Extractor
 		}
 
 		return targetFile;
+	}
+
+	private void GenerateCleanUpScript(IEnumerable<Song> songs)
+	{
+		List<Song> obsoleteSongs = [.. songs.Where(song => song.Id is null)];
+		StringBuilder sb = new();
+		foreach (Song song in obsoleteSongs)
+		{
+			sb.AppendLine($"Remove-Item -LiteralPath \"{song.File.FullName}\"");
+			string? directory = song.File.DirectoryName;
+			if (directory.IsNotEmpty() && !directory.Equals(this.args.InputFolder))
+			{
+				sb.AppendLine($"if (@(Get-ChildItem -LiteralPath \"{directory}\").Count -eq 0) {{ Remove-Item -LiteralPath \"{directory}\" }}");
+			}
+		}
+
+		if (sb.Length > 0)
+		{
+			string targetFile = Path.Combine(this.OutputFolder, "CleanUpMobileSheetsInputFolder.ps1");
+			EnsureUniqueFile(targetFile);
+			string script = sb.ToString();
+			File.WriteAllText(targetFile, script);
+		}
 	}
 
 	#endregion
