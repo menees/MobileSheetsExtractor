@@ -73,6 +73,29 @@ internal sealed class Extractor
 		}
 	}
 
+	private static int FindInsertIndex(List<string> lines, List<string> existingDirectives)
+	{
+		// Some software (e.g., SongBook) assumes that the {title} directive will be the first line
+		// If we only need to add a {capo} directive or something, make sure it comes after other
+		// existing directives in priority order. If a song contains {key} already, then we may need
+		// to add {title} before it and {capo} after it.
+		int maxDirectiveIndex = -1;
+		foreach (string directive in existingDirectives)
+		{
+			for (int index = 0; index < lines.Count; index++)
+			{
+				if (lines[index].TrimStart().StartsWith($"{{{directive}:"))
+				{
+					maxDirectiveIndex = Math.Max(index, maxDirectiveIndex);
+					break;
+				}
+			}
+		}
+
+		int result = maxDirectiveIndex + 1;
+		return result;
+	}
+
 	private void ExtractCsv(IEnumerable<Song> songs)
 	{
 		DataTable table = new();
@@ -128,14 +151,14 @@ internal sealed class Extractor
 
 		foreach (Song song in parsableSongs)
 		{
-			Document document = Document.Load(song.File.FullName);
+			List<string> lines = [.. File.ReadLines(song.File.FullName)];
+			Document document = Document.Parse(string.Join(Environment.NewLine, lines));
 			IReadOnlyList<Entry> entries = DocumentTransformer.Flatten(document.Entries);
 			ILookup<string, ChordProDirectiveLine> directiveLookup = entries
 				.OfType<ChordProDirectiveLine>()
 				.Where(directive => directive.Argument.IsNotWhiteSpace())
 				.ToLookup(directive => directive.LongName, StringComparer.OrdinalIgnoreCase);
 
-			List<string> augmentedLines = [];
 			List<string> existingDirectives = [];
 			CheckDirective("title", [song.Title]);
 			CheckDirective("artist", song.Artists);
@@ -143,9 +166,17 @@ internal sealed class Extractor
 			CheckDirective("tempo", song.Tempos);
 			CheckDirective("capo", [song.Capo]);
 
-			if (augmentedLines.Count > 0)
+			if (existingDirectives.Count > 0)
 			{
-				this.Augment(song, augmentedLines, existingDirectives);
+				int insertIndex = FindInsertIndex(lines, [.. existingDirectives, "this_is_not_a_directive"]);
+				if (lines[insertIndex].IsNotWhiteSpace())
+				{
+					lines.Insert(insertIndex, string.Empty);
+				}
+
+				string targetFile = GetOutputFileFullName(song, "Augmented");
+				EnsureUniqueFile(targetFile);
+				File.WriteAllLines(targetFile, lines);
 			}
 
 			void CheckDirective<T>(string directiveName, IEnumerable<T> values)
@@ -164,40 +195,14 @@ internal sealed class Extractor
 					// https://onsongapp.com/docs/features/formats/chordpro/
 					const string OnSongSeparator = "; ";
 					string argument = string.Join(OnSongSeparator, values);
-					augmentedLines.Add($"{{{directiveName}: {argument}}}");
+					string directiveLine = $"{{{directiveName}: {argument}}}";
+
+					int insertIndex = FindInsertIndex(lines, existingDirectives);
+					lines.Insert(insertIndex, directiveLine);
+					existingDirectives.Add(directiveName);
 				}
 			}
 		}
-	}
-
-	private void Augment(Song song, List<string> augmentedLines, List<string> existingDirectives)
-	{
-		// If we only need to add a {capo} directive or something, make sure it comes after other existing directives.
-		// Some software (e.g., SongBook) assumes that the {title} directive will be the first line.
-		List<string> existingLines = [.. File.ReadLines(song.File.FullName)];
-		int maxDirectiveIndex = -1;
-		foreach (string directive in existingDirectives)
-		{
-			for (int index = 0; index < existingLines.Count; index++)
-			{
-				if (existingLines[index].TrimStart().StartsWith($"{{{directive}:"))
-				{
-					maxDirectiveIndex = Math.Max(index, maxDirectiveIndex);
-					break;
-				}
-			}
-		}
-
-		if (existingLines.Count > (maxDirectiveIndex + 1) && existingLines[maxDirectiveIndex + 1].IsNotWhiteSpace())
-		{
-			augmentedLines.Add(string.Empty);
-		}
-
-		existingLines.InsertRange(maxDirectiveIndex + 1, augmentedLines);
-
-		string targetFile = GetOutputFileFullName(song, "Augmented");
-		EnsureUniqueFile(targetFile);
-		File.WriteAllLines(targetFile, existingLines);
 	}
 
 	private string GetOutputFileFullName(Song song, string subfolder)
