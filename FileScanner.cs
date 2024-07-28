@@ -6,7 +6,9 @@ internal sealed class FileScanner(string inputFolder, IEnumerable<string> fileMa
 
 	public IReadOnlyList<Song> Songs { get; } = [.. fileMasks
 			.SelectMany(mask => Directory.EnumerateFiles(inputFolder, mask, SearchOption.AllDirectories))
-			.Select(file => new Song(new FileInfo(file), inputFolder))];
+			.Select(file => new FileInfo(file))
+			.Where(file => !file.Name.StartsWith("MobileSheets", StringComparison.OrdinalIgnoreCase)) // Ignore help pdfs
+			.Select(file => new Song(file, inputFolder))];
 
 	#endregion
 
