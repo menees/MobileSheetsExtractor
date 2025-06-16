@@ -28,7 +28,11 @@ internal sealed class Extractor
 
 	#endregion
 
+	#region Private Properties
+
 	private string OutputFolder => this.args.OutputFolder;
+
+	#endregion
 
 	#region Public Methods
 
@@ -168,15 +172,10 @@ internal sealed class Extractor
 
 			if (existingDirectives.Count > 0)
 			{
-				int insertIndex = FindInsertIndex(lines, [.. existingDirectives, "this_is_not_a_directive"]);
-				if (lines[insertIndex].IsNotWhiteSpace())
-				{
-					lines.Insert(insertIndex, string.Empty);
-				}
-
 				string targetFile = this.GetOutputFileFullName(song, "Augmented");
 				EnsureUniqueFile(targetFile);
-				File.WriteAllLines(targetFile, lines);
+				string text = string.Join(song.NewLine, lines);
+				File.WriteAllText(targetFile, text, song.Encoding);
 			}
 
 			void CheckDirective<T>(string directiveName, IEnumerable<T> values)
