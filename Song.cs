@@ -38,6 +38,7 @@ internal sealed class Song
 		string content = reader.ReadToEnd();
 		this.Encoding = reader.CurrentEncoding;
 		this.NewLine = content.Contains("\r\n") ? "\r\n" : "\n";
+		this.EndsWithNewLine = content.EndsWith(this.NewLine, StringComparison.OrdinalIgnoreCase);
 	}
 
 	#endregion
@@ -49,6 +50,8 @@ internal sealed class Song
 	public Encoding Encoding { get; }
 
 	public string NewLine { get; }
+
+	public bool EndsWithNewLine { get; }
 
 	public FileState FileState { get; set; }
 

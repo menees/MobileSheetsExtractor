@@ -174,6 +174,11 @@ internal sealed class Extractor
 			{
 				string targetFile = this.GetOutputFileFullName(song, "Augmented");
 				EnsureUniqueFile(targetFile);
+				if (song.EndsWithNewLine && lines[^1].IsNotEmpty())
+				{
+					lines.Add(string.Empty);
+				}
+
 				string text = string.Join(song.NewLine, lines);
 				File.WriteAllText(targetFile, text, song.Encoding);
 			}
